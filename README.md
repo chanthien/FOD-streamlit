@@ -1,4 +1,4 @@
-# FOD-streamlit
+# FOD-taipy
 
 # Real-time Object Detection and GPS Localization
 
