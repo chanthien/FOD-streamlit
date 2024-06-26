@@ -1,8 +1,5 @@
-streamlit 
+taipy
 opencv-python-headless 
-# torch 
-# torchvision 
 geopy
 folium
-# request
 ultralytics
