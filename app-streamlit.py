@@ -38,6 +38,14 @@ if not st.session_state.start:
         st.session_state.input_source = input_source
         st.session_state.url_input = url_input
 else:
+    # Load the model and perspective matrix only once
+    model_path = "path/to/yolov8.pt"
+    model = load_model(model_path)
+    perspective_matrix = compute_perspective_transform(
+        [(10.0, 10.0), (20.0, 10.0), (20.0, 20.0), (10.0, 20.0)],  # Example GPS points
+        [(100, 100), (200, 100), (200, 200), (100, 200)]  # Example image points
+    )
+
     # Main Page
     st.markdown(
         """
@@ -55,30 +63,6 @@ else:
             right: 0;
             z-index: 1000;
         }
-        .object-info {
-            position: fixed;
-            top: 100px;
-            right: 0;
-            width: 240px;
-            bottom: 0;
-            background-color: rgba(255, 255, 255, 0.8);
-            z-index: 900;
-            overflow-y: auto;
-        }
-        .video-feed {
-            position: fixed;
-            bottom: 0;
-            right: 0;
-            width: 240px;
-            height: 180px;
-            z-index: 950;
-        }
-        .video-feed.fullscreen {
-            width: 100%;
-            height: 100%;
-            bottom: 0;
-            right: 0;
-        }
         </style>
         """,
         unsafe_allow_html=True
@@ -86,22 +70,21 @@ else:
 
     st.markdown('<div class="title-bar">Object Detection</div>', unsafe_allow_html=True)
 
-    map_placeholder = st.empty()
-    object_list_placeholder = st.empty()
-    video_feed_placeholder = st.empty()
+    # Create layout with containers
+    col1, col2 = st.columns([4, 1])
 
-    model_path = "E:\streamlit\models\yolov8-fod01.pt"
-    model = load_model(model_path)
-    perspective_matrix = compute_perspective_transform(
-        [(10.0, 10.0), (20.0, 10.0), (20.0, 20.0), (10.0, 20.0)],  # Example GPS points
-        [(100, 100), (200, 100), (200, 200), (100, 200)]  # Example image points
-    )
+    with col1:
+        map_container = st.container()
+
+    with col2:
+        video_container = st.container()
+        object_container = st.container()
 
     def get_frames(input_source, url_input):
         if input_source == "Webcam":
             cap = cv2.VideoCapture(0)
         elif input_source == "IP Camera":
-            cap = cv2.VideoCaptupyre(url_input)
+            cap = cv2.VideoCapture(url_input)
         elif input_source == "Video URL":
             cap = cv2.VideoCapture(url_input)
         elif input_source == "MP4 File":
@@ -123,16 +106,20 @@ else:
             transformed_detections = transform_to_gps(detections, perspective_matrix)
 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            video_feed_placeholder.image(frame)
 
-            m = folium.Map(location=[10.0, 10.0], zoom_start=2)
-            for det in transformed_detections:
-                folium.Marker(
-                    location=[det['gps']['lat'], det['gps']['lon']],
-                    popup=f"{det['name']} ({det['confidence']})"
-                ).add_to(m)
+            with map_container:
+                m = folium.Map(location=[10.0, 10.0], zoom_start=2)
+                for det in transformed_detections:
+                    folium.Marker(
+                        location=[det['gps']['lat'], det['gps']['lon']],
+                        popup=f"{det['name']} ({det['confidence']})"
+                    ).add_to(m)
+                st_folium(m, width=700, height=500)
 
-            map_placeholder.write(st_folium(m, width=700, height=500))
-            object_list_placeholder.write(transformed_detections)
+            with video_container:
+                st.image(frame, use_column_width=True)
+
+            with object_container:
+                st.write(transformed_detections)
 
     update_ui()
